@@ -5,6 +5,7 @@
 
 #' (1) run algo and save all auc 
 auc_results = run_rf_ridge(x,y, buckets_features_names)
+saveRDS(auc_results, file = "output/step_1_auc.rds")
 ridge_auc = auc_results$ridge_auc
 rf_auc = auc_results$rf_auc
 

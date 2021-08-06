@@ -4,6 +4,8 @@
 
 # (1) run the 3 algo on combine bucket
 res = run_lasso_stir_rf(x,y)
+saveRDS(res, file = "output/step_2_res.rds")
+
 res_lasso = res$lasso
 res_Relieff = res$stir
 res_rf = res$rf
@@ -25,9 +27,16 @@ print(paste0("\nNumber chosen relieff: ", length(features_list$relieff)))
 rf_bigest_score = find_biggest_gap(res_rf$features[,1])
 features_list$rf = ranked_features$feature[ranked_features$score_rf >= rf_bigest_score]
 
+lasso_index = length(features_list$lasso)
+relieff_index = length(features_list$relieff)
+rf_index = length(features_list$rf)
+
 # (3) get subset from mean rank
+max_length = max(lasso_index,relieff_index, rf_index)
+max_length = (round(max_length/5)*5) 
+max_length = max(35,max_length)
 mean_rank_features = ranked_features[order(ranked_features[["mean_rank"]], decreasing = TRUE),c("feature"),drop = F]
-for (i in c(5,10,15,20,25,30,35)){
+for (i in seq(5,max_length,5)){
   
   col_name = paste0("mean_rank_",i )
   features_list[[col_name]] = mean_rank_features$feature[1:i]
@@ -39,13 +48,11 @@ write.csv(temp,"output/features_list.csv",row.names = F, na = "")
 
 
 
-lasso_index = length(features_list$lasso)
-relieff_index = length(features_list$relieff)
-rf_index = length(features_list$rf)
+
 
 ind = 1
 #print 
-df = matrix(nrow = (lasso_index+relieff_index+rf_index+25), ncol = 5, dimnames = list(c(),c("model","feature","bucket","rank","original_rank")))
+df = matrix(nrow = (lasso_index+relieff_index+rf_index+max_length), ncol = 3, dimnames = list(c(),c("model","feature","bucket")))
 df[ind:lasso_index,"model"] = paste0("Lasso\n(n=",lasso_index,")")
 df[ind:lasso_index, c("feature")] = features_list$lasso
 
@@ -58,41 +65,35 @@ df[(ind +1):(ind+rf_index),"model"] = paste0("Random Forest\n(n=",rf_index,")")
 df[(ind +1):(ind+rf_index), c("feature")] = features_list$rf
 
 ind = ind + rf_index
-df[(ind +1):(ind+25),"model"] = "Mean Rank\n(n=25)"
-df[(ind +1):(ind+25), c("feature")] = features_list$mean_rank_25
+df[(ind +1):(ind+max_length),"model"] = paste0("Mean Rank\n(n=",max_length,")")
+df[(ind +1):(ind+max_length), c("feature")] = features_list[[paste0("mean_rank_",max_length)]]
 
 
-for (i in 1:nrow(df)) {
-  for (j in c("demographics", "environment","family","trauma","cognitive","clinical")){
-    if (df[i,"feature"] %in% buckets_features_names[[j]]){
-      df[i,"bucket"] = j
-      next
-    }
-  }
-}
+df = as.data.frame(df)
+df$bucket = ifelse( df$feature %in% buckets_features_names$demographics,  "Demographics", 
+            ifelse( df$feature %in% buckets_features_names$environment,  "Neighborhood", 
+            ifelse( df$feature %in% buckets_features_names$family,  "Family", 
+            ifelse( df$feature %in% buckets_features_names$trauma,  "Trauma", 
+            ifelse( df$feature %in% buckets_features_names$cognitive,  "Neurocognitive", "Clinical")))) )
+           
+            
+  
 
 
 
 write.csv(df,"output/graph_data.csv",row.names = F)
 
 
-df = as.data.frame(df)
-levels(df$bucket)[levels(df$bucket)=="demographics"] = "Demographics"
-levels(df$bucket)[levels(df$bucket)=="environment"] = "Neighborhood"
-levels(df$bucket)[levels(df$bucket)=="family"] = "Family"
-levels(df$bucket)[levels(df$bucket)=="cognitive"] = "Neurocognitive"
-levels(df$bucket)[levels(df$bucket)=="clinical"] = "Clinical"
 
 levels_df = unique(df$model)
 
 df$model <- factor(df$model, levels = levels_df)
 
-
 ggplot(data = df , mapping = aes(x = model, fill = bucket)) +  
   geom_bar( width = 0.7, position="fill") +
   labs( y = "Percent of features in subset" , fill = "", x ="") +
   scale_y_continuous(labels = scales::percent) +
-  scale_fill_manual(values=c("#F5B7B1","#ABEBC6","#AED6F1","#D2B4DE","#FAD7A0", "#F1BDAE"))+
+  scale_fill_manual(values=c("#F5B7B1","#ABEBC6","#ABB0EB","#F5D9B1", "#E6ABEB","#B1F5B7"))+
   theme(axis.text=element_text(size=10, colour = "black"), 
         legend.text=element_text(size=10)) 
   

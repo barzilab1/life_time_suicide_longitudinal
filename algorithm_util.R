@@ -4,11 +4,11 @@ library(stir)
 library(randomForest)
 
 
-
-run_lasso <- function(x_train, y_train, x_test, y_test) {
+#lasso 1, ridge  = 0
+run_elastic_net <- function(x_train, y_train, x_test, y_test, alpha) {
   
   #find best lambda
-  mod <- cv.glmnet(x=as.matrix(x_train),y=y_train,alpha=1,family="binomial")
+  mod <- cv.glmnet(x=as.matrix(x_train),y=y_train,alpha=alpha,family="binomial")
   opt_lambda <- mod$lambda.min
   
   #get model
@@ -52,7 +52,7 @@ print_lasso <- function(lasso_features, lasso_measurements ) {
   cat("\nmeasurements: \n")
   print(apply(lasso_measurements, 1, mean, na.rm = T))
   cat("\nSD: \n")
-  print(apply(lasso_measurements, 1, SD, na.rm = T))
+  print(apply(lasso_measurements, 1, sd, na.rm = T))
   cat("\n")
   
 }
@@ -96,13 +96,17 @@ print_stir <- function(stir_features){
 
 run_rf <- function(x_train, y_train, x_test, y_test) {
   
-  mode_rf <- randomForest(x=x_train,y=as.factor(y_train), importance = TRUE)
+  mode_rf = tuneRF(x=x_train,y=as.factor(y_train),doBest = T, importance = TRUE)
+
+  # mode_rf <- randomForest(x=x_train,y=as.factor(y_train), importance = TRUE)
+ 
 
   #calculate measurements
   y_predicted <- predict(mode_rf, newdata = x_test, type ="prob")[,2]
   pred <- prediction(y_predicted, y_test)
   
   measurments = calculate_measurments(pred)
+  
   
   return(list(
     #get all selected features not including the intercept 
@@ -126,7 +130,7 @@ print_rf <- function(rf_features, rf_measurements){
   cat("\nmeasurements: \n")
   print(apply(rf_measurements, 1, mean, na.rm = T))
   cat("\nSD: \n")
-  print(apply(rf_measurements, 1, SD, na.rm = T))
+  print(apply(rf_measurements, 1, sd, na.rm = T))
   cat("\n")  
   
 }
@@ -135,69 +139,87 @@ print_rf <- function(rf_features, rf_measurements){
 # x: a dataframe with all the features not including bblid
 run_rf_ridge = function(x,y,features_names){
   
-  ridge_auc = list()
-  rf_auc = list()
-  
   cl = makeCluster(N_CORES, type="FORK")
   registerDoParallel(cl)
   
-  set.seed(42)
-  for (i in 1:splits) {
-    
-    #split the data splits times to 75% training and 25% test
-    splitz = sample.split(y, .75)
-    x_train <- x[splitz,]
-    y_train <- y[splitz]
-    x_test <- x[!splitz,]
-    y_test <- y[!splitz]
-    
-    #' (1) imputation 
-    if(imputation){
-      
-      x_train = missForest(x_train, parallelize = "forests")$ximp
-      x_test = missForest(x_test, , parallelize = "forests")$ximp
-      
-    }else{
-      #remove rows with NA
-      index_train = which(rowSums(is.na(x_train)) == 0)
-      x_train = x_train[index_train,]
-      y_train = y_train[index_train]
-      
-      index_test = which(rowSums(is.na(x_test)) == 0)
-      x_test = x_test[index_test,]
-      y_test = y_test[index_test]
-      
-    }
-    
-    for(feature_set in names(features_names)){
-      
-      #get data according to bucket
-      train_data = x_train[,features_names[[feature_set]]]
-      test_data = x_test[,features_names[[feature_set]]]
-      
-      ###ridge
-      mod <- cv.glmnet(x=as.matrix(train_data),y=y_train,alpha=0,family="binomial", parallel = T)
-      opt_lambda <- mod$lambda.min
-      mod <- mod$glmnet.fit
-      y_predicted <- predict(mod, s = opt_lambda, newx = as.matrix(test_data),type ="response")
-      pred <- prediction(y_predicted, y_test)
-      
-      ridge_auc[[feature_set]][i] =  performance(pred, measure = "auc")@y.values[[1]]
-      
-      ###rf
-      mode_rf <- randomForest(x=train_data,y=as.factor(y_train))
-      y_predicted <- predict(mode_rf, newdata = test_data, type ="prob")[,2]
-      pred <- prediction(y_predicted, y_test)
-      
-      rf_auc[[feature_set]][i] =  performance(pred, measure = "auc")@y.values[[1]]
-      
-    }
-    
-  }
+  results_list = list()
+  results_list = foreach(i = seq(splits), .packages=c("missForest","glmnet","ROCR","caTools"), 
+                         .inorder = F) %dopar% {
+                           
+                           set.seed(i)
+                           ridge_auc = list()
+                           rf_auc = list()
+
+                          #' (1) imputation 
+                          if(imputation){
+                            
+                            #split the data splits times to 75% training and 25% test
+                            splitz = sample.split(y, .75)
+                            x_train <- x[splitz,]
+                            y_train <- y[splitz]
+                            x_test <- x[!splitz,]
+                            y_test <- y[!splitz]
+                            
+                            x_train = missForest(x_train)$ximp
+                            x_test = missForest(x_test)$ximp
+                            
+                          }else{
+                            # remove rows with NA and then split
+                            # in order to have always 2 class in y
+                            index_not_missing = which(rowSums(is.na(x)) == 0)
+                            x_clean = x[index_not_missing,]
+                            y_clean = y[index_not_missing]
+                            
+                            splitz = sample.split(y_clean, .75)
+                            x_train <- x_clean[splitz,]
+                            y_train <- y_clean[splitz]
+                            x_test <- x_clean[!splitz,]
+                            y_test <- y_clean[!splitz]
+                            
+                          }
+                          
+                           #keep the seed so each algo will be independent in reproducing results
+                           seed = .Random.seed
+                           
+                          for(feature_set in names(features_names)){
+                            
+                            #get data according to bucket
+                            train_data = x_train[,features_names[[feature_set]]]
+                            test_data = x_test[,features_names[[feature_set]]]
+                            
+                            ###ridge
+                            .Random.seed = seed
+                            res_ridge = run_elastic_net(train_data, y_train, test_data, y_test,0)
+                            ridge_auc[[feature_set]] =  res_ridge$measurments["auc"]
+                            
+                            ###rf
+                            .Random.seed = seed
+                            res_rf = run_rf(train_data, y_train, test_data, y_test)
+                            rf_auc[[feature_set]] =  res_rf$measurments["auc"]
+                            
+                          }
+                           
+                           return(list(
+                             ridge_auc = ridge_auc,
+                             rf_auc = rf_auc
+                           ))
+                          
+                         }
   
   stopCluster(cl)
   
-  for(feature_set in names(ridge_auc)){
+  
+  ridge_auc = list()
+  rf_auc = list()
+  
+  for(feature_set in names(features_names)){
+    ridge_auc[[feature_set]] = sapply(results_list, function(x){x$ridge_auc[[feature_set]]})
+    rf_auc[[feature_set]] = sapply(results_list, function(x){x$rf_auc[[feature_set]]})
+        
+  }
+  
+  
+  for(feature_set in names(rf_auc)){
     
     cat("\n##################################\n")
     cat(feature_set)
@@ -218,37 +240,50 @@ run_lasso_stir_rf = function(x,y) {
   cl = makeCluster(N_CORES, type="FORK")
   registerDoParallel(cl)
   
+  results_list = list()
+  
   results_list = foreach(i = seq(splits), .packages=c("missForest","glmnet","ROCR","stir","caTools"), 
                          .inorder = F) %dopar% {
                            set.seed(i)
                            
-                           #split the data splits times to 75% training and 25% test
-                           splitz = sample.split(y, .75)
-                           x_train <- x[splitz,]
-                           y_train <- y[splitz]
-                           x_test <- x[!splitz,]
-                           y_test <- y[!splitz]
-                           
                            #' (1) imputation 
                            if(imputation){
+                             
+                             #split the data splits times to 75% training and 25% test
+                             splitz = sample.split(y, .75)
+                             x_train <- x[splitz,]
+                             y_train <- y[splitz]
+                             x_test <- x[!splitz,]
+                             y_test <- y[!splitz]
                              
                              x_train = missForest(x_train)$ximp
                              x_test = missForest(x_test)$ximp
                              
                            }else{
-                             #remove rows with NA
-                             index_train = which(rowSums(is.na(x_train)) == 0)
-                             x_train = x_train[index_train,]
-                             y_train = y_train[index_train]
+                             # remove rows with NA and then split
+                             # in order to have always 2 class in y
+                             index_not_missing = which(rowSums(is.na(x)) == 0)
+                             x_clean = x[index_not_missing,]
+                             y_clean = y[index_not_missing]
                              
-                             index_test = which(rowSums(is.na(x_test)) == 0)
-                             x_test = x_test[index_test,]
-                             y_test = y_test[index_test]
+                             splitz = sample.split(y_clean, .75)
+                             x_train <- x_clean[splitz,]
+                             y_train <- y_clean[splitz]
+                             x_test <- x_clean[!splitz,]
+                             y_test <- y_clean[!splitz]
                              
                            }
                            
-                           res_lasso = run_lasso(x_train, y_train, x_test, y_test)
+                           #keep the seed so each algo will be independent in reproducing results
+                           seed = .Random.seed
+                           
+                           .Random.seed = seed
+                           res_lasso = run_elastic_net(x_train, y_train, x_test, y_test,1)
+                           
+                           .Random.seed = seed
                            res_stir = run_stir(x_train, y_train)
+                           
+                           .Random.seed = seed
                            res_rf = run_rf(x_train, y_train, x_test, y_test)
                            
                            return(list(
