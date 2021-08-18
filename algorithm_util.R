@@ -45,7 +45,7 @@ print_lasso <- function(lasso_features, lasso_measurements ) {
   
   # avg. number of selected features. 
   cat("\nAvg. selected features")
-  cat("\nall 10k models: " , sum(lasso_features)/splits, sep = "\t")  
+  cat("\nall 10k models: " , sum(lasso_features)/N_SPLITS, sep = "\t")  
   cat("\n")
   
   #get measurements closest to (0,1)
@@ -83,7 +83,7 @@ print_stir <- function(stir_features){
   axis(1, at=1:nrow(stir_features), labels=rownames(stir_features))
   
   cat("\n Avg. selected features")
-  cat("\nall 10k models: " , sum(stir_features)/splits, sep = "\t")  
+  cat("\nall 10k models: " , sum(stir_features)/N_SPLITS, sep = "\t")  
   cat("\n")
   
 }
@@ -143,8 +143,8 @@ run_rf_ridge = function(x,y,features_names){
   registerDoParallel(cl)
   
   results_list = list()
-  results_list = foreach(i = seq(splits), .packages=c("missForest","glmnet","ROCR","caTools"), 
-                         .inorder = F) %dopar% {
+  results_list = foreach(i = seq(N_SPLITS), .packages=c("missForest","glmnet","ROCR","caTools") 
+                         ) %dopar% {
                            
                            set.seed(i)
                            ridge_auc = list()
@@ -169,13 +169,13 @@ run_rf_ridge = function(x,y,features_names){
                             index_not_missing = which(rowSums(is.na(x)) == 0)
                             x_clean = x[index_not_missing,]
                             y_clean = y[index_not_missing]
-                            
+
                             splitz = sample.split(y_clean, .75)
                             x_train <- x_clean[splitz,]
                             y_train <- y_clean[splitz]
                             x_test <- x_clean[!splitz,]
                             y_test <- y_clean[!splitz]
-                            
+
                           }
                           
                            #keep the seed so each algo will be independent in reproducing results
@@ -226,7 +226,9 @@ run_rf_ridge = function(x,y,features_names){
     cat("\n##################################\n")
     
     cat("ridge auc: ",mean(ridge_auc[[feature_set]]))
-    cat("\nrf auc: ",mean(rf_auc[[feature_set]]),"\n")
+    cat("\nridge sd: ", sd(ridge_auc[[feature_set]]))
+    cat("\nrf auc: ",mean(rf_auc[[feature_set]]))
+    cat("\nrf sd: ", sd(rf_auc[[feature_set]]),"\n")
     
   }
   
@@ -242,8 +244,8 @@ run_lasso_stir_rf = function(x,y) {
   
   results_list = list()
   
-  results_list = foreach(i = seq(splits), .packages=c("missForest","glmnet","ROCR","stir","caTools"), 
-                         .inorder = F) %dopar% {
+  results_list = foreach(i = seq(N_SPLITS), .packages=c("missForest","glmnet","ROCR","stir","caTools") 
+                         ) %dopar% {
                            set.seed(i)
                            
                            #' (1) imputation 
@@ -326,14 +328,18 @@ run_lasso_stir_rf = function(x,y) {
   
   return(list(
     lasso = list(features = lasso_features,
-                 number_selected = ceiling(sum(lasso_features)/splits)
+                 number_selected = ceiling(sum(lasso_features)/N_SPLITS)
     ),
     stir = list(features = stir_features,
-                number_selected = ceiling(sum(stir_features)/splits)
+                number_selected = ceiling(sum(stir_features)/N_SPLITS)
     ),
     rf = list(features = rf_features)
   )
   )
   
 }
+
+
+
+
 

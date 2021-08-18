@@ -11,8 +11,8 @@ library(ggplot2)
 ##########################################
 # global variables 
 ##########################################
-splits = 10000
-N_CORES <- detectCores()
+N_SPLITS = 10000
+N_CORES = detectCores()
 imputation = T
 with_sui2 = T
 
@@ -25,8 +25,10 @@ source(paste(getwd(),"algorithm_util.R", sep = "/"))
 
 x_total = merge(Y_bucket, combined_bucket)
 
-y = x_total[,2]
+y = x_total[,3]
 x = x_total[,-c(1:5)]
+
+
 
 #TODO table 1
 
