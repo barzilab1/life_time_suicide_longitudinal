@@ -149,7 +149,19 @@ run_rf_ridge = function(x,y,features_names){
                            set.seed(i)
                            ridge_auc = list()
                            rf_auc = list()
+                           
+                           ridge_sen = list()
+                           rf_sen = list()
+                           
+                           ridge_spe = list()
+                           rf_spe = list()
 
+                           ridge_npv = list()
+                           rf_npv = list()
+                           
+                           ridge_ppv = list()
+                           rf_ppv = list()
+                           
                           #' (1) imputation 
                           if(imputation){
                             
@@ -191,17 +203,33 @@ run_rf_ridge = function(x,y,features_names){
                             .Random.seed = seed
                             res_ridge = run_elastic_net(train_data, y_train, test_data, y_test,0)
                             ridge_auc[[feature_set]] =  res_ridge$measurments["auc"]
+                            ridge_sen[[feature_set]] =  res_ridge$measurments["sen"]
+                            ridge_spe[[feature_set]] =  res_ridge$measurments["spe"]
+                            ridge_npv[[feature_set]] =  res_ridge$measurments["npv"]
+                            ridge_ppv[[feature_set]] =  res_ridge$measurments["ppv"]
                             
                             ###rf
                             .Random.seed = seed
                             res_rf = run_rf(train_data, y_train, test_data, y_test)
                             rf_auc[[feature_set]] =  res_rf$measurments["auc"]
+                            rf_sen[[feature_set]] =  res_rf$measurments["sen"]
+                            rf_spe[[feature_set]] =  res_rf$measurments["spe"]
+                            rf_npv[[feature_set]] =  res_rf$measurments["npv"]
+                            rf_ppv[[feature_set]] =  res_rf$measurments["ppv"]
                             
                           }
                            
                            return(list(
                              ridge_auc = ridge_auc,
-                             rf_auc = rf_auc
+                             rf_auc = rf_auc,
+                             ridge_sen = ridge_sen,
+                             rf_sen = rf_sen,
+                             ridge_spe = ridge_spe,
+                             rf_spe = rf_spe,
+                             ridge_npv = ridge_npv,
+                             rf_npv = rf_npv,
+                             ridge_ppv = ridge_ppv,
+                             rf_ppv = rf_ppv
                            ))
                           
                          }
@@ -212,9 +240,31 @@ run_rf_ridge = function(x,y,features_names){
   ridge_auc = list()
   rf_auc = list()
   
+  ridge_sen = list()
+  rf_sen = list()
+  
+  ridge_spe = list()
+  rf_spe = list()
+  
+  ridge_npv = list()
+  rf_npv = list()
+  
+  ridge_ppv = list()
+  rf_ppv = list()
+  
   for(feature_set in names(features_names)){
     ridge_auc[[feature_set]] = sapply(results_list, function(x){x$ridge_auc[[feature_set]]})
+    ridge_sen[[feature_set]] = sapply(results_list, function(x){x$ridge_sen[[feature_set]]})
+    ridge_spe[[feature_set]] = sapply(results_list, function(x){x$ridge_spe[[feature_set]]})
+    ridge_npv[[feature_set]] = sapply(results_list, function(x){x$ridge_npv[[feature_set]]})
+    ridge_ppv[[feature_set]] = sapply(results_list, function(x){x$ridge_ppv[[feature_set]]})
+    
+    
     rf_auc[[feature_set]] = sapply(results_list, function(x){x$rf_auc[[feature_set]]})
+    rf_sen[[feature_set]] = sapply(results_list, function(x){x$rf_sen[[feature_set]]})
+    rf_spe[[feature_set]] = sapply(results_list, function(x){x$rf_spe[[feature_set]]})
+    rf_npv[[feature_set]] = sapply(results_list, function(x){x$rf_npv[[feature_set]]})
+    rf_ppv[[feature_set]] = sapply(results_list, function(x){x$rf_ppv[[feature_set]]})
         
   }
   
@@ -225,10 +275,19 @@ run_rf_ridge = function(x,y,features_names){
     cat(feature_set)
     cat("\n##################################\n")
     
-    cat("ridge auc: ",mean(ridge_auc[[feature_set]]))
-    cat("\nridge sd: ", sd(ridge_auc[[feature_set]]))
-    cat("\nrf auc: ",mean(rf_auc[[feature_set]]))
-    cat("\nrf sd: ", sd(rf_auc[[feature_set]]),"\n")
+    cat("ridge:")
+    cat("\nauc: ",mean(ridge_auc[[feature_set]]), " sd: ", sd(ridge_auc[[feature_set]]))
+    cat("\nsen: ",mean(ridge_sen[[feature_set]]), " sd: ", sd(ridge_sen[[feature_set]]))
+    cat("\nspe: ",mean(ridge_spe[[feature_set]]), " sd: ", sd(ridge_spe[[feature_set]]))
+    cat("\nnpv: ",mean(ridge_npv[[feature_set]]), " sd: ", sd(ridge_npv[[feature_set]]))
+    cat("\nppv: ",mean(ridge_ppv[[feature_set]]), " sd: ", sd(ridge_ppv[[feature_set]]), "\n")
+    
+    cat("\nrf:")
+    cat("\nauc: ",mean(rf_auc[[feature_set]]), " sd: ", sd(rf_auc[[feature_set]]))
+    cat("\nsen: ",mean(rf_sen[[feature_set]]), " sd: ", sd(rf_sen[[feature_set]]))
+    cat("\nspe: ",mean(rf_spe[[feature_set]]), " sd: ", sd(rf_spe[[feature_set]]))
+    cat("\nnpv: ",mean(rf_npv[[feature_set]]), " sd: ", sd(rf_npv[[feature_set]]))
+    cat("\nppv: ",mean(rf_ppv[[feature_set]]), " sd: ", sd(rf_ppv[[feature_set]]), "\n")
     
   }
   
