@@ -1,10 +1,6 @@
 ###########################################
-#all 193 features
+#all features
 ###########################################
-
-if(!with_sui2){
-  Clinical_bucket_full = Clinical_bucket_full[,! names(Clinical_bucket) %in% c("sui002")]
-}
 
 
 combined_bucket = Reduce(function(x, y) merge(x, y, by="bblid", all.x=TRUE), list(Environment_bucket_trimmed,

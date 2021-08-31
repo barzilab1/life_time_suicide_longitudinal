@@ -18,8 +18,8 @@ ranked_features = rank_features(res_lasso,res_Relieff,res_rf)
 
 features_list = list()
 
-features_list$lasso   =  ranked_features$feature[ranked_features$rank_lasso   > (193 - res_lasso$number_selected)]
-features_list$relieff =  ranked_features$feature[ranked_features$rank_Relieff > (193 - res_Relieff$number_selected)]
+features_list$lasso   =  ranked_features$feature[ranked_features$rank_lasso   > (number_features - res_lasso$number_selected)]
+features_list$relieff =  ranked_features$feature[ranked_features$rank_Relieff > (number_features - res_Relieff$number_selected)]
 
 print(paste0("\nNumber chosen lasso: ", length(features_list$lasso)))
 print(paste0("\nNumber chosen relieff: ", length(features_list$relieff)))

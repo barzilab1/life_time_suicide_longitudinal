@@ -82,7 +82,7 @@ Clinical_bucket = merge(Clinical_bucket, Edu_info_combined[,c(1,3)])
 #age above 11- check if child or parent did the assesment 
 # Clinical_bucket = merge(Clinical_bucket, PNC_Core_Data[,c("bblid","above11")])
 Substance_bucket = merge(Y_bucket[,c("bblid")], GO1_Substance_Use[,c(1,76:89)])
-Clinical_bucket = source(paste(getwd(),"longitudinal/Clinical.R", sep = "/"))$value
+Clinical_bucket_full = source(paste(getwd(),"longitudinal/Clinical.R", sep = "/"))$value
 
 ###Cognitive_bucket
 Cognitive_raw_bucket = merge(Y_bucket[,c("bblid")], PNC_Core_Data_cognitive_ALTERNATIVE)
@@ -90,6 +90,9 @@ Cognitive_bucket = merge(Y_bucket[,c("bblid")], PNC_Core_Data_cognitive)
 Cognitive_bucket = source(paste(getwd(),"longitudinal/Cognitive.R", sep = "/"))$value
 
 
+if(!with_sui2){
+  Clinical_bucket_full = Clinical_bucket_full[,! names(Clinical_bucket_full) %in% c("sui002")]
+}
 
 #get features names from each bucket
 buckets_features_names = list(
@@ -102,6 +105,7 @@ buckets_features_names = list(
 )
 
 buckets_features_names[["all"]] =  as.vector(unlist(buckets_features_names))
-
+number_features = length(buckets_features_names$all)
+print(paste0("Number of features in dataset: ", number_features))
 
 
